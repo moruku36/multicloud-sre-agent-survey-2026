@@ -1,0 +1,74 @@
+# Multi-AI, Multi-Cloud SRE Agent Research
+
+[日本語](README.md)
+
+A source-linked survey of existing SRE agents, cloud practitioners' talks and implementations, and academic research, followed by a staged evaluation proposal for AWS, Azure, and Google Cloud.
+
+**Research snapshot: 2026-10-11. Status: literature and public-code review with an architecture proposal. No experiments, installations, cloud operations, or paid API calls have been performed for this repository.**
+
+## Reading guide
+
+The detailed reports are in Japanese. This README provides the English overview.
+
+| Order | Report | Coverage |
+| --- | --- | --- |
+| 1 | [Products and practitioner evidence](docs/survey-products-and-practice.ja.md) | OpenAI's official sample, Azure SRE Agent, AWS DevOps Agent, Gemini Cloud Assist, HolmesGPT, and related candidates. Availability, access, pricing, licenses, and selection rationale |
+| 2 | [Academic survey](docs/survey-academic.ja.md) | 15 core papers and 2 supporting studies on RCA, replay benchmarks, live repair, multi-agent designs, safety, and reproducibility |
+| 3 | [Architecture and minimal validation plan](docs/architecture-and-validation-plan.ja.md) | Shared evidence, comparisons using existing AI tools, approval and execution boundaries, a one-case first experiment, and gates for live cloud tests |
+
+## Main findings
+
+- Establish a single-agent diagnostic baseline before deploying autonomous agents across three clouds.
+- Compare another AI independently using the same evidence and total time/cost budget; test additional roles separately.
+- Score a correct root-cause answer and sufficient supporting evidence as different outcomes.
+- Separate investigation, proposed repair, human approval, scoped execution, and independent recovery checks.
+- Do not treat open-source licensing, free trials, or a read-only label as proof of zero total cost or zero side effects.
+
+The survey contrasts Microsoft's experience simplifying specialist-agent handoffs, Mary Kay's AWS-and-Azure implementation, Google SRE's controlled action workflow, and Datadog's replay-based evaluations. Product claims, customer reports, demonstrations, peer-reviewed papers, and preprints are identified separately.
+
+## Recommended first experiment
+
+**Diagnose one public Cloud-OpsBench snapshot with one existing MCP-compatible AI client.**
+
+| Item | Proposed scope |
+| --- | --- |
+| Case | Online Boutique runtime/1, used as an integration smoke test because it is a public example |
+| Components | Existing MCP server and AI client; no live Kubernetes cluster or cloud credentials |
+| Limits | One run, five minutes of diagnosis, at most 20 admitted tool requests; an inference spending cap must be set before execution |
+| Isolation | Keep answer labels, golden trajectories, prior runs, and live cloud tools outside the agent's access |
+| Evaluation | Connectivity, faulty component, fault type, citations, handling missing evidence, action boundaries, stopping, and reproducibility |
+| Alternative | Consider HolmesGPT CLI with synthetic files if the replay integration is unsuitable |
+
+The reference is commit [`ea05dafb`](https://github.com/LLM4Ops/Cloud-OpsBench/tree/ea05dafbc87b5985df8721622d63d4229c2b4224). This proposal is based on the [published MCP interface](https://github.com/LLM4Ops/Cloud-OpsBench/blob/ea05dafbc87b5985df8721622d63d4229c2b4224/cloudopsbench_mcp/README.md), not a successful run performed here. The server needs no LLM key, but client inference may still incur charges.
+
+## Logical architecture
+
+```text
+Public snapshots / cloud-specific read-only collection
+                         |
+Shared evidence: source, time, scope, missing observations
+                         |
+Single diagnostic AI -- independent comparison with another AI
+                         |
+Evidence review -> human approval -> scoped execution
+                         |
+Independent SLI/state checks -> cleanup and billing reconciliation
+```
+
+These are logical responsibilities, not a requirement to build a separate service for every box. Mutations use a single writer per resource. Stale approvals, API timeouts, retries, and irreversible actions require explicit handling.
+
+## What this repository does not establish
+
+- An overall product/model ranking, production safety certification, or SLA
+- Successful live remediation based only on a diagnostic response
+- Generalization from Kubernetes tasks to every cloud management API
+- Equivalence between process termination, resource absence, stopped recurring charges, and reconciled billing
+- Eligibility, trial availability, or final pricing for a particular account
+
+The proposed evaluation distinguishes PASS, FAIL, INCONCLUSIVE, and NOT_RUN. An unexecuted test is not a success, and awaiting authorization is not a technical failure.
+
+## Sources and publication scope
+
+Each report links to official documentation, public repositories, authors' and speakers' materials, or research papers. The repository contains summaries and analysis, not full-paper reproductions, third-party source code, private telemetry, credentials, personal machine paths, or non-public operational records.
+
+Third-party copyrights and licenses remain with their respective owners; see [Third-party materials](THIRD_PARTY_NOTICES.md). Product availability, prices, and repositories may change after the research date and must be checked again before execution.
