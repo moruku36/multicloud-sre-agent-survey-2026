@@ -1,72 +1,74 @@
-# マルチAI・マルチクラウド SRE エージェント調査
+# Multi-AI, Multi-Cloud SRE Agent Research
 
-[English](README.en.md)
+**English** | [日本語](README.ja.md)
 
-既存のSREエージェント、クラウド技術者の発表・実装事例、学術研究を調べ、AWS・Azure・GCPを対象とする段階的な検証構成を整理した資料集です。
+A source-linked survey of existing SRE agents, cloud practitioners' talks and implementations, and academic research, followed by a staged evaluation proposal for AWS, Azure, and Google Cloud.
 
-**調査基準日：2026-10-11。状態：文献・公開コードの調査と設計提案。実験・導入・クラウド操作・API課金は未実施。**
+**Research snapshot: 2026-10-11. Status: literature and public-code review with an architecture proposal. No experiments, installations, cloud operations, or paid API calls have been performed for this repository.**
 
-## 最初に読むもの
+## Reading guide
 
-| 順番 | 資料 | 内容 |
+Each report is available in English and Japanese; use the switcher at the top of each page.
+
+| Order | Report | Coverage |
 | --- | --- | --- |
-| 1 | [製品・技術者発表・実装事例](docs/survey-products-and-practice.ja.md) | OpenAI公式例、Azure SRE Agent、AWS DevOps Agent、Gemini Cloud Assist、HolmesGPT等。提供状態、権限、費用、ライセンスと選定理由 |
-| 2 | [学術サーベイ](docs/survey-academic.ja.md) | 中核15本＋補助2本。RCA、再生型benchmark、live repair、multi-agent、安全性と再現条件 |
-| 3 | [構成・最小検証計画](docs/architecture-and-validation-plan.ja.md) | 共通証拠、既存AIの比較、承認と実行の分離、初回1ケース、実クラウドへの移行条件 |
+| 1 | [Products and practitioner evidence](docs/survey-products-and-practice.md) | OpenAI's official sample, Azure SRE Agent, AWS DevOps Agent, Gemini Cloud Assist, HolmesGPT, and related candidates. Availability, access, pricing, licenses, and selection rationale |
+| 2 | [Academic survey](docs/survey-academic.md) | 15 core papers and 2 supporting studies on RCA, replay benchmarks, live repair, multi-agent designs, safety, and reproducibility |
+| 3 | [Architecture and minimal validation plan](docs/architecture-and-validation-plan.md) | Shared evidence, comparisons using existing AI tools, approval and execution boundaries, a one-case first experiment, and gates for live cloud tests |
 
-## 調査から得た結論
+## Main findings
 
-- 最初から3クラウドに多数の自律agentを置かず、既存AI 1つの診断を基準にする。
-- 同じ証拠・時間・費用上限で別AIを独立比較し、役割追加の効果を後から測る。
-- 原因名の正解と、十分な証拠を集めたことを別に採点する。
-- 調査、修復提案、人の承認、限定実行、実際の復旧確認を分ける。
-- OSS、trial、read-onlyという名称だけで、全体無料や無変更を仮定しない。
+- Establish a single-agent diagnostic baseline before deploying autonomous agents across three clouds.
+- Compare another AI independently using the same evidence and total time/cost budget; test additional roles separately.
+- Score a correct root-cause answer and sufficient supporting evidence as different outcomes.
+- Separate investigation, proposed repair, human approval, scoped execution, and independent recovery checks.
+- Do not treat open-source licensing, free trials, or a read-only label as proof of zero total cost or zero side effects.
 
-Microsoftの細分化agent間引継ぎの失敗経験、Mary KayのAWS＋Azure実装、Google SREの承認付き操作、Datadogの再生型評価を照合しています。製品説明と顧客自己報告、デモ、査読研究、プレプリントの違いは各資料に記載しています。
+The survey contrasts Microsoft's experience simplifying specialist-agent handoffs, Mary Kay's AWS-and-Azure implementation, Google SRE's controlled action workflow, and Datadog's replay-based evaluations. Product claims, customer reports, demonstrations, peer-reviewed papers, and preprints are identified separately.
 
-## 推奨する初回実験
+## Recommended first experiment
 
-**Cloud-OpsBenchの公開snapshot 1件を、既存のMCP対応AI 1つで診断する。**
+**Diagnose one public Cloud-OpsBench snapshot with one existing MCP-compatible AI client.**
 
-| 項目 | 提案する範囲 |
+| Item | Proposed scope |
 | --- | --- |
-| 対象 | Online Boutique runtime/1。公開例のため動作確認として扱う |
-| 構成 | 既製MCP server＋既存AI client。実Kubernetes／cloud credentialsは不要 |
-| 上限 | 1run、診断5分、tool最大20回。推論費用の上限は実行前に確定 |
-| 分離 | 正解label、golden trajectory、過去run、実cloud toolsをagentから隔離 |
-| 評価 | 接続、原因component、fault type、引用、証拠不足、操作境界、停止、再現記録 |
-| 代替 | 接続条件が合わなければHolmesGPT CLIの合成ファイル診断を検討 |
+| Case | Online Boutique runtime/1, used as an integration smoke test because it is a public example |
+| Components | Existing MCP server and AI client; no live Kubernetes cluster or cloud credentials |
+| Limits | One run, five minutes of diagnosis, at most 20 admitted tool requests; an inference spending cap must be set before execution |
+| Isolation | Keep answer labels, golden trajectories, prior runs, and live cloud tools outside the agent's access |
+| Evaluation | Connectivity, faulty component, fault type, citations, handling missing evidence, action boundaries, stopping, and reproducibility |
+| Alternative | Consider HolmesGPT CLI with synthetic files if the replay integration is unsuitable |
 
-参照commitは[`ea05dafb`](https://github.com/LLM4Ops/Cloud-OpsBench/tree/ea05dafbc87b5985df8721622d63d4229c2b4224)。[MCP仕様](https://github.com/LLM4Ops/Cloud-OpsBench/blob/ea05dafbc87b5985df8721622d63d4229c2b4224/cloudopsbench_mcp/README.md)を確認した計画であり、このリポジトリで実動を確認したものではありません。serverにLLM keyが不要でも、clientの推論料金は別です。
+The reference is commit [`ea05dafb`](https://github.com/LLM4Ops/Cloud-OpsBench/tree/ea05dafbc87b5985df8721622d63d4229c2b4224). This proposal is based on the [published MCP interface](https://github.com/LLM4Ops/Cloud-OpsBench/blob/ea05dafbc87b5985df8721622d63d4229c2b4224/cloudopsbench_mcp/README.md), not a successful run performed here. The server needs no LLM key, but client inference may still incur charges.
 
-## 全体構成
+## Logical architecture
 
 ```text
-公開snapshot／cloud別read-only取得
-                ↓
-共通証拠（出典・時刻・対象・欠損）
-                ↓
-単体診断AI ── 同条件の別AIを独立比較
-                ↓
-根拠確認 → 人の承認 → 限定実行
-                ↓
-独立したSLI・実状態検証 → cleanup・費用照合
+Public snapshots / cloud-specific read-only collection
+                         |
+Shared evidence: source, time, scope, missing observations
+                         |
+Single diagnostic AI -- independent comparison with another AI
+                         |
+Evidence review -> human approval -> scoped execution
+                         |
+Independent SLI/state checks -> cleanup and billing reconciliation
 ```
 
-論理上の責務を示したもので、各箱を常駐サービスとして新設する計画ではありません。同じ資源への変更は単一writerに限定し、承認後の状態変化、API timeout、不可逆操作を別途扱います。
+These are logical responsibilities, not a requirement to build a separate service for every box. Mutations use a single writer per resource. Stale approvals, API timeouts, retries, and irreversible actions require explicit handling.
 
-## この資料で証明していないこと
+## What this repository does not establish
 
-- 製品やモデルの総合ランキング、本番の安全性、SLA
-- 診断の文章だけによる実修復成功
-- Kubernetesでの結果からの全cloud管理APIへの一般化
-- プロセス停止・資源不在・継続課金停止・後日請求一致の同一視
-- 特定アカウントの利用資格、trial適格性、最終料金
+- An overall product/model ranking, production safety certification, or SLA
+- Successful live remediation based only on a diagnostic response
+- Generalization from Kubernetes tasks to every cloud management API
+- Equivalence between process termination, resource absence, stopped recurring charges, and reconciled billing
+- Eligibility, trial availability, or final pricing for a particular account
 
-実施時はPASS／FAIL／INCONCLUSIVE／NOT_RUNを使い分けます。未実行を成功にせず、承認待ちを技術的失敗として数えません。
+The proposed evaluation distinguishes PASS, FAIL, INCONCLUSIVE, and NOT_RUN. An unexecuted test is not a success, and awaiting authorization is not a technical failure.
 
-## 出典と公開範囲
+## Sources and publication scope
 
-公式docs、公開repo、著者・登壇者の資料、論文へのリンクを各節に付けています。論文全文、第三者コード、private telemetry、credentials、個人端末のpath、非公開の運用記録は含めません。
+Each report links to official documentation, public repositories, authors' and speakers' materials, or research papers. The repository contains summaries and analysis, not full-paper reproductions, third-party source code, private telemetry, credentials, personal machine paths, or non-public operational records.
 
-第三者資料の著作権・ライセンスは各提供元に帰属します。[第三者資料の扱い](THIRD_PARTY_NOTICES.md)も参照してください。製品状態・料金・repoの内容は調査日以降に変わるため、実施前に再確認が必要です。
+Third-party copyrights and licenses remain with their respective owners; see [Third-party materials](THIRD_PARTY_NOTICES.md). Product availability, prices, and repositories may change after the research date and must be checked again before execution.

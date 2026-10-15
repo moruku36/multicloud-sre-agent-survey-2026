@@ -1,5 +1,5 @@
 # SRE エージェント調査：製品・技術者発表・実装事例
-[日本語概要](../README.md) · [English overview](../README.en.md)
+[English](survey-products-and-practice.md) | **日本語** · [概要](../README.ja.md)
 
 調査日 2026年10月11日
 状態 公開一次資料の調査結果 導入と実測は未実行  
