@@ -1,5 +1,5 @@
 # SREエージェント／AIOps 学術サーベイ
-[日本語概要](../README.md) · [English overview](../README.en.md)
+[English](survey-academic.md) | **日本語** · [概要](../README.ja.md)
 
 調査基準日：2026-10-11。対象：既存AIツールを活用し、AWS・Azure・GCPで段階的にSRE検証を行うための研究選定。
 

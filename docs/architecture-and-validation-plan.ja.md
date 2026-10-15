@@ -1,5 +1,5 @@
 # マルチAI・マルチクラウド SRE：選定構成と最小検証計画
-[日本語概要](../README.md) · [English overview](../README.en.md)
+[English](architecture-and-validation-plan.md) | **日本語** · [概要](../README.ja.md)
 
 調査基準日 2026年10月11日  
 対象 任意の検証用環境で実施する段階的な評価
