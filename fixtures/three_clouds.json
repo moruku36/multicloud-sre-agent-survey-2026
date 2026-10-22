@@ -1,0 +1,5 @@
+[
+  {"cloud":"aws","scope":"111122223333/us-east-1","resource":"arn:aws:elasticloadbalancing:us-east-1:111122223333:targetgroup/synthetic/123","metric":"HealthyHostCount","namespace":"AWS/ApplicationELB","minimum":2,"value":1,"observed_at":"2026-01-01T12:00:00+00:00"},
+  {"cloud":"azure","scope":"synthetic-subscription/eastus","resource":"/subscriptions/synthetic-subscription/resourceGroups/demo/providers/Microsoft.Network/applicationGateways/demo","metric":"HealthyHostCount","minimum":2,"value":1,"observed_at":"2026-01-01T12:00:00+00:00"},
+  {"cloud":"gcp","scope":"projects/synthetic-project","resource":"synthetic-instance-group","metric":"compute.googleapis.com/instance_group/size","minimum":2,"value":1,"observed_at":"2026-01-01T12:00:00+00:00"}
+]

@@ -1,5 +1,19 @@
 # Multi-AI, Multi-Cloud SRE Agent Research
 
+## Working local prototype
+
+The [initial multi-cloud agent](docs/implementation.md) adds a reproducible synthetic demonstration alongside this research survey. It reads fake AWS, Azure and Google Cloud SDK responses, records evidence and uncertainty, proposes a typed synthetic action, and keeps execution off by default. No credentials, LLM key, network service or paid resources are needed. Python 3.11+ is sufficient.
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m sre_agent.cli demo
+python -m unittest discover -s tests -v
+# Optional: only in-memory state changes with synthetic approval
+python -m sre_agent.cli demo --simulate-approved
+```
+
+For POSIX shells, use `PYTHONPATH=src python -m sre_agent.cli demo`. The demo's three providers are **fake-client tests**, not live cloud validation. It does not diagnose root causes, run cloud changes, or prove recovery after an incident. See [ADR-001](docs/ADR-001-local-agent.md) for the requirement map and [operating gates](docs/implementation.md) for permissions, limitations and roadmap.
+
 **English** | [日本語](README.ja.md)
 
 A source-linked survey of existing SRE agents, cloud practitioners' talks and implementations, and academic research, followed by a staged evaluation proposal for AWS, Azure, and Google Cloud.

@@ -1,0 +1,11 @@
+flowchart LR
+    F["Synthetic fixture / future scoped read"] --> A["AWS / Azure / GCP read adapters"]
+    A --> E["Observation + evidence ID + gaps"]
+    E --> D["Single deterministic diagnosis"]
+    D --> P["Typed proposal"]
+    P --> H{"Exact human approval?"}
+    H -->|No| X["No action"]
+    H -->|Yes, synthetic only| G["Policy + fresh-state gate"]
+    G --> S["Single-writer simulation"]
+    S --> V["Independent 300-second verification"]
+    G -->|Denied / stale| X
