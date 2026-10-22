@@ -70,3 +70,17 @@ Microsoftの細分化agent間引継ぎの失敗経験、Mary KayのAWS＋Azure�
 公式docs、公開repo、著者・登壇者の資料、論文へのリンクを各節に付けています。論文全文、第三者コード、private telemetry、credentials、個人端末のpath、非公開の運用記録は含めません。
 
 第三者資料の著作権・ライセンスは各提供元に帰属します。[第三者資料の扱い](THIRD_PARTY_NOTICES.md)も参照してください。製品状態・料金・repoの内容は調査日以降に変わるため、実施前に再確認が必要です。
+
+## ローカルで動く初期実装
+
+[初期実装](docs/implementation.md)は AWS・Azure・Google Cloud の公式SDK形式のfake clientを使い、証拠、診断、変更案、承認境界、合成環境での事後検証を再現します。Python 3.11以上で動き、認証情報やLLM APIキーは不要です。
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m sre_agent.cli demo
+python -m unittest discover -s tests -v
+# 明示的な合成承認でメモリ内の変更と検証を試す場合のみ
+python -m sre_agent.cli demo --simulate-approved
+```
+
+既定では実行は無効です。三クラウドの実接続・実変更の確認ではありません。要求との対応と技術選定は[ADR-001](docs/ADR-001-local-agent.md)、権限・承認チェックリストと残課題は[実装ガイド](docs/implementation.md)にあります。

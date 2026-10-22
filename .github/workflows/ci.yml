@@ -1,0 +1,22 @@
+name: local prototype checks
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Syntax and package build
+        run: |
+          python -m compileall -q src tests scripts
+          python setup.py build
+          python scripts/smoke_built.py
+      - name: Tests
+        run: python -m unittest discover -s tests -v
+      - name: Links and basic secret patterns
+        run: python scripts/check_repo.py
