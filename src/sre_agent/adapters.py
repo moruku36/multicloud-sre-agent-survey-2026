@@ -27,18 +27,25 @@ def _latest(points: list[tuple[datetime, float]], target: Target, source: str,
 
 
 class AWSCloudWatch:
-    def __init__(self, client: object, target: Target, namespace: str, dimensions: list[dict]):
+    def __init__(self, client: object, target: Target, namespace: str):
         if target.cloud != "aws" or namespace != "AWS/ApplicationELB" or target.metric != "HealthyHostCount":
             raise ValueError("invalid AWS target")
         arn = target.resource.split(":", 5)
-        if (len(arn) != 6 or arn[:3] != ["arn", "aws", "elasticloadbalancing"]
+        balancer_arn = target.load_balancer.split(":", 5)
+        if (len(arn) != 6 or len(balancer_arn) != 6
+                or arn[:3] != ["arn", "aws", "elasticloadbalancing"]
+                or balancer_arn[:5] != arn[:5]
+                or not re.fullmatch(r"[0-9]{12}", arn[4])
+                or not re.fullmatch(r"[a-z0-9-]+", arn[3])
                 or target.scope != f"{arn[4]}/{arn[3]}"):
             raise ValueError("AWS ARN and account/region scope mismatch")
-        group = target.resource.rsplit(":", 1)[-1]
-        groups = [d.get("Value") for d in dimensions if d.get("Name") == "TargetGroup"]
-        if not group.startswith("targetgroup/") or groups != [group]:
-            raise ValueError("AWS TargetGroup dimension must match target ARN")
-        self.client, self.target, self.namespace, self.dimensions = client, target, namespace, dimensions
+        group, balancer = arn[5], balancer_arn[5]
+        if (not re.fullmatch(r"targetgroup/[A-Za-z0-9-]+/[0-9a-f]{16}", group)
+                or not re.fullmatch(r"loadbalancer/app/[A-Za-z0-9-]+/[0-9a-f]{16}", balancer)):
+            raise ValueError("AWS TargetGroup and LoadBalancer ARN suffixes required")
+        self.client, self.target, self.namespace = client, target, namespace
+        self.dimensions = [{"Name": "LoadBalancer", "Value": balancer.removeprefix("loadbalancer/")},
+                           {"Name": "TargetGroup", "Value": group}]
 
     def collect(self, now: datetime) -> Observation:
         end = utc(now)
@@ -104,13 +111,19 @@ class GCPMonitoring:
             raise ValueError("invalid GCP project scope")
         if not re.fullmatch(r"[a-zA-Z0-9-]+", target.resource):
             raise ValueError("invalid GCP instance group name")
+        if not re.fullmatch(r"[a-z0-9-]+", target.location):
+            raise ValueError("GCP instance group location required")
         self.client, self.target = client, target
 
     def collect(self, now: datetime) -> Observation:
         end = utc(now)
         try:
+            project = self.target.scope.split("/", 1)[1]
             request = {"name": self.target.scope,
                        "filter": (f'metric.type = "{self.target.metric}" AND '
+                                  f'resource.type = "instance_group" AND '
+                                  f'resource.labels.project_id = "{project}" AND '
+                                  f'resource.labels.location = "{self.target.location}" AND '
                                   f'resource.labels.instance_group_name = "{self.target.resource}"'),
                        "interval": {"start_time": end - timedelta(minutes=5), "end_time": end},
                        "view": "FULL"}
@@ -118,7 +131,11 @@ class GCPMonitoring:
             series_count = 0
             for series in self.client.list_time_series(request=request):
                 series_count += 1
-                if series.resource.labels.get("instance_group_name") != self.target.resource:
+                labels = series.resource.labels
+                if (series.resource.type != "instance_group"
+                        or labels.get("project_id") != project
+                        or labels.get("location") != self.target.location
+                        or labels.get("instance_group_name") != self.target.resource):
                     raise CollectionError("GCP response contains out-of-scope series")
                 for point in series.points:
                     points.append((point.interval.end_time,

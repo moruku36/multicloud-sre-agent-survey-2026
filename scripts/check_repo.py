@@ -11,7 +11,7 @@ SECRET = re.compile(r"AKIA[0-9A-Z]{16}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE 
 def check() -> list[str]:
     errors = []
     for path in ROOT.rglob("*"):
-        if not path.is_file() or any(part in {".git", "node_modules", "__pycache__", "dist"}
+        if not path.is_file() or any(part in {".git", "node_modules", "__pycache__", "dist", "build"}
                                          for part in path.relative_to(ROOT).parts):
             continue
         if path.suffix not in {".md", ".py", ".json", ".toml", ".yml", ".mjs", ".mmd", ".svg"}:

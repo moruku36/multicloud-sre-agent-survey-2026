@@ -15,6 +15,7 @@ jobs:
         run: |
           python -m compileall -q src tests scripts
           python setup.py build
+          python scripts/smoke_built.py
       - name: Tests
         run: python -m unittest discover -s tests -v
       - name: Links and basic secret patterns

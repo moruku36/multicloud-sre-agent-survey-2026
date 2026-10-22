@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime, timedelta
+from importlib.resources import files
 import json
-from pathlib import Path
 from types import SimpleNamespace
 
 from .adapters import AWSCloudWatch, AzureMonitor, GCPMonitoring
@@ -32,39 +32,43 @@ class FakeAzure:
 
 
 class FakeGCP:
-    def __init__(self, value: float, stamp: datetime):
+    def __init__(self, value: float, stamp: datetime, project: str, location: str, group: str):
         self.value, self.stamp = value, stamp
+        self.project, self.location, self.group = project, location, group
 
     def list_time_series(self, *, request):
         point = SimpleNamespace(interval=SimpleNamespace(end_time=self.stamp),
                                 value=SimpleNamespace(int64_value=self.value, double_value=0))
-        group = request["filter"].split('instance_group_name = "')[1].split('"')[0]
         return [SimpleNamespace(points=[point],
-                                resource=SimpleNamespace(labels={"instance_group_name": group}))]
+                                resource=SimpleNamespace(type="instance_group", labels={
+                                    "project_id": self.project, "location": self.location,
+                                    "instance_group_name": self.group}))]
 
 
 def run_demo(simulate_approved: bool = False) -> list[dict]:
-    fixture = Path(__file__).resolve().parents[2] / "fixtures" / "three_clouds.json"
+    fixture = files("sre_agent").joinpath("fixtures").joinpath("three_clouds.json")
     cases = json.loads(fixture.read_text(encoding="utf-8"))
     output = []
     for case in cases:
         target = Target(case["cloud"], case["scope"], case["resource"],
-                        case["metric"], case["minimum"])
+                        case["metric"], case["minimum"], case.get("location", ""),
+                        case.get("load_balancer", ""))
         stamp = datetime.fromisoformat(case["observed_at"])
         if target.cloud == "aws":
             adapter = AWSCloudWatch(FakeAWS(case["value"], stamp), target,
-                                    case["namespace"], [{"Name": "TargetGroup",
-                                                         "Value": target.resource.rsplit(":", 1)[-1]}])
+                                    case["namespace"])
         elif target.cloud == "azure":
             adapter = AzureMonitor(FakeAzure(case["value"], stamp, target.metric), target)
         else:
-            adapter = GCPMonitoring(FakeGCP(case["value"], stamp), target)
+            adapter = GCPMonitoring(FakeGCP(case["value"], stamp,
+                target.scope.split("/", 1)[1], target.location, target.resource), target)
         observation = adapter.collect(stamp + timedelta(seconds=1))
         diagnosis = diagnose(observation)
         plan = propose(observation, stamp + timedelta(seconds=2))
         item = {"cloud": target.cloud, "diagnosis": diagnosis.status,
                 "run_id": observation.run_id, "scope": target.scope,
-                "resource": target.resource, "metric": target.metric,
+                "resource": target.resource, "location": target.location,
+                "load_balancer": target.load_balancer, "metric": target.metric,
                 "value": observation.value, "minimum": target.minimum,
                 "observed_at": observation.observed_at.isoformat(),
                 "summary": diagnosis.summary, "evidence_id": observation.evidence_id,
@@ -76,12 +80,14 @@ def run_demo(simulate_approved: bool = False) -> list[dict]:
                                           max_actions=1, max_cost_units=1,
                                           deadline=stamp + timedelta(minutes=4))
             approval = Approval(plan.plan_id, target.scope, target.resource, plan.operation,
-                                stamp + timedelta(minutes=3), "synthetic-human")
+                                plan.expires_at, "synthetic-human")
             outcome = executor.execute(plan, approval, state, stamp + timedelta(seconds=3))
-            after = [Observation(target, stamp + timedelta(seconds=4 + n * 60),
-                                 state.read().value, "independent synthetic probe",
+            changed_at = state.read().observed_at
+            after = [Observation(target, stamp + timedelta(seconds=5 + n * 60),
+                                 state.read().value, "synthetic sample from same in-memory state",
                                  run_id=observation.run_id) for n in range(6)]
-            verified = verify_recovery(observation, after)
+            verified = verify_recovery(observation, after,
+                after[-1].observed_at + timedelta(seconds=1), changed_at)
             item["execution"] = outcome.status
             item["verification"] = verified.status
             item["verification_evidence_ids"] = verified.evidence_ids

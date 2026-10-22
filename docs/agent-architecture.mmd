@@ -7,5 +7,5 @@ flowchart LR
     H -->|No| X["No action"]
     H -->|Yes, synthetic only| G["Policy + fresh-state gate"]
     G --> S["Single-writer simulation"]
-    S --> V["Independent 300-second verification"]
+    S --> V["Synthetic six-sample check"]
     G -->|Denied / stale| X

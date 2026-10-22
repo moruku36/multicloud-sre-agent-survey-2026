@@ -6,9 +6,9 @@ The synthetic demo is a small implementation of the boundaries in [ADR-001](ADR-
 
 1. A fake SDK response for each cloud is normalized into a target, observed value, time, source and evidence ID. Missing or stale metrics are marked inconclusive.
 2. A single deterministic check compares that metric with a configured minimum. It never claims a root cause from this one signal.
-3. A typed proposal names one synthetic operation and the observed evidence ID. It is not permission to execute.
-4. `--simulate-approved` constructs a **synthetic** approval for demonstration, then checks target allowlist, operation, expiry, budget, fresh state and duplicate ledger before modifying in-memory state.
-5. A separate synthetic probe supplies six observations over 300 seconds. Verification can fail or remain inconclusive despite an action response.
+3. A typed proposal binds the full target, operation, evidence ID, expiry and cost in a recomputed SHA-256 digest. It is not permission to execute. The demo rejects observations older than five minutes or from the future when proposing and executing; this is a demo policy, not a production SLO.
+4. `--simulate-approved` constructs a **synthetic** approval for demonstration, then checks the exact plan digest and expiry, target allowlist, operation, budget, fresh state and duplicate ledger before modifying in-memory state.
+5. The demonstration reads six synthetic samples from the **same in-memory state** over 300 seconds. It checks the run and target, 60–75-second spacing, post-change timing and recency. This is not an independent real probe or evidence of continuous recovery.
 
 There is no shell tool, free-text-to-command conversion, LLM call, outbound network path, credential discovery, cloud mutation or cloud SDK client constructor in the demo. Only fake clients are instantiated. SDK-compatible adapters exist for read operations, but their behavior is verified only with fake clients.
 
@@ -16,11 +16,13 @@ There is no shell tool, free-text-to-command conversion, LLM call, outbound netw
 
 | Cloud | Injected client operation | Synthetic signal | Read scope requirement |
 | --- | --- | --- | --- |
-| AWS | `boto3` CloudWatch client `get_metric_data` | ALB `HealthyHostCount` | Explicit account/region context and TargetGroup dimension matching the target ARN |
+| AWS | `boto3` CloudWatch client `get_metric_data` | ALB `HealthyHostCount` | Exact account/region plus `LoadBalancer` and `TargetGroup` ARN-derived dimensions |
 | Azure | `azure.monitor.query.MetricsQueryClient.query_resource` | Application Gateway `HealthyHostCount` | Resource ID under the explicit subscription; reject multiple time series until a backend dimension is chosen |
-| Google Cloud | `google.cloud.monitoring_v3.MetricServiceClient.list_time_series` | `compute.googleapis.com/instance_group/size` | Explicit project and instance group name filter; reject out-of-scope or multiple time series |
+| Google Cloud | `google.cloud.monitoring_v3.MetricServiceClient.list_time_series` | `compute.googleapis.com/instance_group/size` | Filter and validate resource type, project ID, location and group name; reject out-of-scope or multiple time series |
 
-The signals are not semantically identical: an AWS ALB target's health, an Azure gateway backend's health, and a GCP instance group's size answer different questions. The common model normalizes evidence and control flow; it does not equate the health claims. A GCP size of two does not establish two serving healthy instances. Threshold and metric selection are lab settings, not a universal production SLO.
+The signals are not semantically identical: an AWS ALB target's health, an Azure gateway backend's health, and a GCP instance group's size answer different questions. The common model normalizes evidence and control flow; it does not equate the health claims. A GCP size of two does not establish two serving healthy instances. Threshold and metric selection are lab settings, not a universal production SLO. [AWS publishes ALB HealthyHostCount with LoadBalancer and TargetGroup dimensions](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-cloudwatch-metrics.html); [Google Cloud monitoring scopes can include another project's instance group metrics](https://docs.cloud.google.com/compute/docs/autoscaler/scaling-cloud-monitoring-metrics#autoscale-based-on-a-metric-from-a-different-project).
+
+The fixture is bundled in the Python package, and CI runs the built package from outside the source checkout. The synthetic duplicate ledger and writer guard are process-local; SDK request timeouts/retry configuration, durable idempotency, cross-process writer coordination and a real independent probe are unimplemented and unverified.
 
 ## Permissions and approval checklist for any later live run
 
@@ -44,7 +46,7 @@ The signals are not semantically identical: an AWS ALB target's health, an Azure
 
 Source: [agent-architecture.mmd](agent-architecture.mmd). Rendered artifact: [agent-architecture.svg](agent-architecture.svg).
 
-The renderer is [Pele 1.8.0 official GitHub release](https://github.com/obsidianmd/pele/releases/tag/1.8.0), source commit `8fad23bd51783e4df1204e177a7fb0d2a30dcd13`. Official asset: `pele-1.8.0.tgz`, SHA-256 `f6fd9389d167d7fb3bd9a6fb16a9e02bdbbbee708dae7faa48769f67d38eb314` (verified before use). The committed SVG SHA-256 after generation is `dca586f243c8b00cdbbadc39c70a28c587e2b179b634474e5bc62dc8c33823a7`.
+The renderer is [Pele 1.8.0 official GitHub release](https://github.com/obsidianmd/pele/releases/tag/1.8.0), source commit `8fad23bd51783e4df1204e177a7fb0d2a30dcd13`. Official asset: `pele-1.8.0.tgz`, SHA-256 `f6fd9389d167d7fb3bd9a6fb16a9e02bdbbbee708dae7faa48769f67d38eb314` (verified before use). The committed SVG SHA-256 after generation is `d5436c50e2afb18a5f21872a1c9c183f64a29f35e9894d87959de92d12a395f0`.
 
 With Node 20 or later, run from the repository root in PowerShell:
 

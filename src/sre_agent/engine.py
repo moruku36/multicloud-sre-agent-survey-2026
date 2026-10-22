@@ -1,14 +1,22 @@
 """Deterministic diagnosis and a synthetic-only execution boundary."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from hashlib import sha256
+from datetime import datetime, timedelta
 
-from .model import Approval, Diagnosis, Observation, Plan, Result, Target, utc
+from .model import Approval, Diagnosis, Observation, Plan, Result, utc
 
 
 class PolicyDenied(RuntimeError):
     pass
+
+
+MAX_OBSERVATION_AGE = timedelta(minutes=5)  # Synthetic demo policy, not a production SLO.
+MAX_VERIFICATION_GAP = timedelta(seconds=75)
+
+
+def _fresh(observation: Observation, now: datetime) -> bool:
+    age = utc(now) - utc(observation.observed_at)
+    return timedelta(0) <= age <= MAX_OBSERVATION_AGE
 
 
 def diagnose(observation: Observation) -> Diagnosis:
@@ -23,10 +31,10 @@ def diagnose(observation: Observation) -> Diagnosis:
 
 
 def propose(observation: Observation, now: datetime) -> Plan | None:
-    if observation.value is None or observation.value >= observation.target.minimum:
+    if (not _fresh(observation, now) or observation.value is None
+            or observation.value >= observation.target.minimum):
         return None
-    plan_id = sha256((observation.evidence_id + ":simulate_restore_capacity").encode()).hexdigest()[:16]
-    return Plan(plan_id, observation.target, "simulate_restore_capacity",
+    return Plan(observation.target, "simulate_restore_capacity",
                 observation.evidence_id, utc(now) + timedelta(minutes=5))
 
 
@@ -62,24 +70,28 @@ class SimulationExecutor:
     def execute(self, plan: Plan, approval: Approval | None,
                 state: SimulationState, now: datetime, fail_after_change: bool = False) -> Result:
         now = utc(now)
-        if plan.plan_id in self.ledger:
-            return self.ledger[plan.plan_id]
+        plan_digest = plan.plan_id
         key = (plan.target.cloud, plan.target.scope, plan.target.resource)
         if approval is None or (approval.plan_id, approval.scope, approval.resource,
-                                approval.operation) != (plan.plan_id, plan.target.scope,
-                                                        plan.target.resource, plan.operation):
+                                approval.operation, utc(approval.expires_at)) != (plan_digest, plan.target.scope,
+                                                        plan.target.resource, plan.operation,
+                                                        utc(plan.expires_at)):
             raise PolicyDenied("exact human approval required")
         if not approval.approver or approval.approver == "agent":
-            raise PolicyDenied("human approver required")
+            raise PolicyDenied("synthetic non-agent approver label required")
         if now >= self.deadline or now >= utc(plan.expires_at) or now >= utc(approval.expires_at):
             raise PolicyDenied("approval, plan or budget expired")
         if key not in self.allowed or plan.operation != "simulate_restore_capacity":
             raise PolicyDenied("target or operation not allowed")
+        if plan_digest in self.ledger:
+            return self.ledger[plan_digest]
         if self.used_actions >= self.max_actions or self.used_cost_units + plan.cost_units > self.max_cost_units:
             raise PolicyDenied("action or cost budget exhausted")
         if key in self.busy:
             raise PolicyDenied("resource already has a writer")
         current = state.read()
+        if not _fresh(current, now):
+            raise PolicyDenied("observation too old or in the future")
         if current.target != plan.target or current.evidence_id != plan.expected_evidence_id:
             raise PolicyDenied("state changed since diagnosis")
         if current.value is None or current.value >= current.target.minimum:
@@ -100,21 +112,27 @@ class SimulationExecutor:
             self.busy.remove(key)
 
 
-def verify_recovery(before: Observation, after: list[Observation]) -> Result:
-    """Synthetic stability check: six samples across at least 300 seconds."""
-    if len(after) < 6:
-        return Result("INCONCLUSIVE", "fewer than six independent observations", "", ())
+def verify_recovery(before: Observation, after: list[Observation], as_of: datetime,
+                    changed_at: datetime) -> Result:
+    """Synthetic sampled-capacity check; it cannot prove continuous real recovery."""
+    if len(after) != 6:
+        return Result("INCONCLUSIVE", "exactly six synthetic observations required", "", ())
     first = utc(after[0].observed_at)
     previous = first
-    for item in after:
+    for index, item in enumerate(after):
         stamp = utc(item.observed_at)
-        if item.target != before.target or item.value is None or item.value < before.target.minimum:
-            return Result("FAIL", "target, coverage or capacity check failed", "",
+        if item.target != before.target or item.run_id != before.run_id:
+            return Result("INCONCLUSIVE", "target or run mismatch", "")
+        if item.value is None or item.value < before.target.minimum:
+            return Result("FAIL", "coverage or capacity check failed", "",
                           tuple(o.evidence_id for o in after))
-        if stamp < previous or (item is not after[0] and (stamp - previous).total_seconds() < 60):
+        if index and not timedelta(seconds=60) <= stamp - previous <= MAX_VERIFICATION_GAP:
             return Result("INCONCLUSIVE", "observation spacing is insufficient", "")
         previous = stamp
-    if first <= utc(before.observed_at) or (previous - first).total_seconds() < 300:
+    if (utc(changed_at) <= utc(before.observed_at) or first <= utc(changed_at)
+            or previous - first < timedelta(seconds=300)):
         return Result("INCONCLUSIVE", "300-second post-change window not observed", "")
-    return Result("PASS", "synthetic capacity remained above threshold for 300 seconds", "",
+    if not timedelta(0) <= utc(as_of) - previous <= MAX_VERIFICATION_GAP:
+        return Result("INCONCLUSIVE", "verification observations are stale or future", "")
+    return Result("PASS", "six recent synthetic samples met capacity threshold", "",
                   tuple(o.evidence_id for o in after))
