@@ -30,6 +30,10 @@ Each report is available in English and Japanese; use the switcher at the top of
 | 2 | [Academic survey](docs/survey-academic.md) | 15 core papers and 2 supporting studies on RCA, replay benchmarks, live repair, multi-agent designs, safety, and reproducibility |
 | 3 | [Architecture and minimal validation plan](docs/architecture-and-validation-plan.md) | Shared evidence, comparisons using existing AI tools, approval and execution boundaries, a one-case first experiment, and gates for live cloud tests |
 
+## Future study: Fault injection and recovery verification
+
+The [unimplemented proposal based on the publisher PDF](docs/chaos-resilience-future-study.md) separates the end of fault injection from verified service recovery. The paper's Section 8 proposes future evaluation, not measured effects. No cloud action or permission change has occurred.
+
 ## Main findings
 
 - Establish a single-agent diagnostic baseline before deploying autonomous agents across three clouds.
