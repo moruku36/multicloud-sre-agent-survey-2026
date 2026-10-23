@@ -12,6 +12,25 @@ The synthetic demo is a small implementation of the boundaries in [ADR-001](ADR-
 
 There is no shell tool, free-text-to-command conversion, LLM call, outbound network path, credential discovery, cloud mutation or cloud SDK client constructor in the demo. Only fake clients are instantiated. SDK-compatible adapters exist for read operations. They are verified with fake clients and with an offline [SDK type contract check](#sdk-type-contract-check); no live API response has been observed.
 
+### Reproduce the packaged pre-execution check
+
+From the repository root with Python 3.11 or later, run:
+
+```text
+python setup.py build
+python scripts/smoke_built.py
+```
+
+The second command runs the built package from a temporary directory outside the source checkout. It checks the packaged fixture against the source fixture, blocks socket creation, DNS lookup and synthetic state writes, and rejects any call to the simulation executor. It runs the three-cloud demo twice for determinism, then independently recomputes each evidence and proposal digest from the fixture. Its recorded result is:
+
+| Cloud | Synthetic metric | Diagnosis | Proposal | Execution | Verification |
+| --- | --- | --- | --- | --- | --- |
+| AWS | 1 of minimum 2 | FAIL, cause unconfirmed | Bound to evidence and target | NOT_RUN | NOT_RUN |
+| Azure | 1 of minimum 2 | FAIL, cause unconfirmed | Bound to evidence and target | NOT_RUN | NOT_RUN |
+| Google Cloud | 1 of minimum 2 | FAIL, cause unconfirmed | Bound to evidence and target | NOT_RUN | NOT_RUN |
+
+The CLI reports `synthetic approval required before execution` for every proposed action. This demonstrates the current fake-client collection, decision, proposal and pre-execution boundary. It does not show that a live metric can be collected, that a proposed action is correct, or that service health was restored. The optional `--simulate-approved` path remains a separate in-memory exercise.
+
 ## Official read interfaces and scope
 
 | Cloud | Injected client operation | Synthetic signal | Read scope requirement |

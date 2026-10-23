@@ -76,7 +76,10 @@ def run_demo(simulate_approved: bool = False) -> list[dict]:
                 "observed_at": observation.observed_at.isoformat(),
                 "summary": diagnosis.summary, "evidence_id": observation.evidence_id,
                 "uncertainty": diagnosis.uncertainty, "proposal": plan.plan_id if plan else None,
-                "execution": "NOT_RUN", "verification": "NOT_RUN"}
+                "execution": "NOT_RUN",
+                "execution_detail": ("synthetic approval required before execution"
+                                     if plan else "no action proposed"),
+                "verification": "NOT_RUN"}
         if simulate_approved and plan:
             state = SimulationState(observation)
             executor = SimulationExecutor({(target.cloud, target.scope, target.resource)},
@@ -92,6 +95,7 @@ def run_demo(simulate_approved: bool = False) -> list[dict]:
             verified = verify_recovery(observation, after,
                 after[-1].observed_at + timedelta(seconds=1), changed_at)
             item["execution"] = outcome.status
+            item["execution_detail"] = outcome.detail
             item["verification"] = verified.status
             item["verification_evidence_ids"] = verified.evidence_ids
         output.append(item)
