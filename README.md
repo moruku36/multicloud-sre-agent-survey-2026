@@ -8,6 +8,9 @@ The [initial multi-cloud agent](docs/implementation.md) adds a reproducible synt
 $env:PYTHONPATH = "src"
 python -m sre_agent.cli demo
 python -m unittest discover -s tests -v
+# Build and verify the complete packaged, offline path through the execution stop
+python setup.py build
+python scripts/smoke_built.py
 # Optional: only in-memory state changes with synthetic approval
 python -m sre_agent.cli demo --simulate-approved
 ```
