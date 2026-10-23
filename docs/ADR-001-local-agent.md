@@ -49,7 +49,7 @@ Mermaid source: [agent-architecture.mmd](agent-architecture.mmd).
 
 - [AWS CloudWatch GetMetricData](https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_GetMetricData.html)
 - [AWS ALB HealthyHostCount dimensions](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-cloudwatch-metrics.html)
-- [Azure MetricsQueryClient.query_resource](https://learn.microsoft.com/en-us/python/api/azure-monitor-query/azure.monitor.query.metricsqueryclient?view=azure-python-preview#query-resource)
+- [Azure MetricsQueryClient.query_resource](https://learn.microsoft.com/en-us/python/api/azure-monitor-query/azure.monitor.query.metricsqueryclient?view=azure-python-preview#query-resource) (azure-monitor-query 1.x; 2.0.0 removed this client, see [implementation notes](implementation.md#sdk-type-contract-check))
 - [Azure Application Gateway HealthyHostCount](https://learn.microsoft.com/en-us/azure/azure-monitor/reference/supported-metrics/microsoft-network-applicationgateways-metrics)
 - [Google Cloud MetricServiceClient.list_time_series](https://docs.cloud.google.com/python/docs/reference/monitoring/latest/google.cloud.monitoring_v3.services.metric_service.MetricServiceClient)
 - [Google Cloud instance group size metric and resource label](https://docs.cloud.google.com/compute/docs/autoscaler/scaling-cloud-monitoring-metrics)

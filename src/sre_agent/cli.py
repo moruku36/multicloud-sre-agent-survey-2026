@@ -26,20 +26,22 @@ class FakeAzure:
         self.value, self.stamp, self.metric = value, stamp, metric
 
     def query_resource(self, *args, **kwargs):
-        point = SimpleNamespace(time_stamp=self.stamp, average=self.value)
+        point = SimpleNamespace(timestamp=self.stamp, average=self.value)
         metric = SimpleNamespace(name=self.metric, timeseries=[SimpleNamespace(data=[point])])
         return SimpleNamespace(metrics=[metric])
 
 
 class FakeGCP:
-    def __init__(self, value: float, stamp: datetime, project: str, location: str, group: str):
+    def __init__(self, value: float, stamp: datetime, project: str, location: str,
+                 group: str, metric: str):
         self.value, self.stamp = value, stamp
         self.project, self.location, self.group = project, location, group
+        self.metric = metric
 
     def list_time_series(self, *, request):
         point = SimpleNamespace(interval=SimpleNamespace(end_time=self.stamp),
                                 value=SimpleNamespace(int64_value=self.value, double_value=0))
-        return [SimpleNamespace(points=[point],
+        return [SimpleNamespace(points=[point], metric=SimpleNamespace(type=self.metric),
                                 resource=SimpleNamespace(type="instance_group", labels={
                                     "project_id": self.project, "location": self.location,
                                     "instance_group_name": self.group}))]
@@ -61,7 +63,8 @@ def run_demo(simulate_approved: bool = False) -> list[dict]:
             adapter = AzureMonitor(FakeAzure(case["value"], stamp, target.metric), target)
         else:
             adapter = GCPMonitoring(FakeGCP(case["value"], stamp,
-                target.scope.split("/", 1)[1], target.location, target.resource), target)
+                target.scope.split("/", 1)[1], target.location, target.resource,
+                target.metric), target)
         observation = adapter.collect(stamp + timedelta(seconds=1))
         diagnosis = diagnose(observation)
         plan = propose(observation, stamp + timedelta(seconds=2))

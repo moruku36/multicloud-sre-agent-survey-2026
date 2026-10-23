@@ -1,0 +1,6 @@
+# Public SDKs used only by tests/test_sdk_contract.py (offline type contract checks).
+# Not runtime dependencies of the package; installing them needs no credentials.
+# Direct pins only: transitive dependencies (protobuf, proto-plus, google-api-core, ...) float.
+azure-monitor-query==1.4.1
+botocore==1.43.118
+google-cloud-monitoring==2.32.0

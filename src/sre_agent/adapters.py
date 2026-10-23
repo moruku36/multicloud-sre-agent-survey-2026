@@ -55,6 +55,8 @@ class AWSCloudWatch:
                     "Namespace": self.namespace, "MetricName": self.target.metric,
                     "Dimensions": self.dimensions}, "Period": 60, "Stat": "Average"}}],
                 StartTime=end - timedelta(minutes=5), EndTime=end, ScanBy="TimestampDescending")
+            if response.get("NextToken"):
+                raise CollectionError("CloudWatch result is paginated")
             results = response["MetricDataResults"]
             if len(results) != 1 or results[0]["Id"] != "signal" or results[0].get("StatusCode") != "Complete":
                 raise CollectionError("CloudWatch result incomplete")
@@ -81,9 +83,12 @@ class AzureMonitor:
 
     def collect(self, now: datetime) -> Observation:
         try:
+            # azure-monitor-query 1.x MetricsQueryClient. The adapter reads .average, so
+            # request that aggregation explicitly instead of relying on a service default.
             response = self.client.query_resource(self.target.resource,
                 metric_names=[self.target.metric],
-                timespan=(utc(now) - timedelta(minutes=5), utc(now)))
+                timespan=(utc(now) - timedelta(minutes=5), utc(now)),
+                aggregations=["Average"])
             points = []
             series_count = 0
             for metric in response.metrics:
@@ -93,7 +98,7 @@ class AzureMonitor:
                     series_count += 1
                     for point in series.data:
                         if point.average is not None:
-                            points.append((point.time_stamp, point.average))
+                            points.append((point.timestamp, point.average))
             if series_count > 1:
                 raise CollectionError("Azure metric has multiple unscoped time series")
             return _latest(points, self.target, "Azure Monitor MetricsQueryClient.query_resource", now)
@@ -132,7 +137,8 @@ class GCPMonitoring:
             for series in self.client.list_time_series(request=request):
                 series_count += 1
                 labels = series.resource.labels
-                if (series.resource.type != "instance_group"
+                if (series.metric.type != self.target.metric
+                        or series.resource.type != "instance_group"
                         or labels.get("project_id") != project
                         or labels.get("location") != self.target.location
                         or labels.get("instance_group_name") != self.target.resource):
