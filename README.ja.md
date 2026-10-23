@@ -14,6 +14,10 @@
 | 2 | [学術サーベイ](docs/survey-academic.ja.md) | 中核15本＋補助2本。RCA、再生型benchmark、live repair、multi-agent、安全性と再現条件 |
 | 3 | [構成・最小検証計画](docs/architecture-and-validation-plan.ja.md) | 共通証拠、既存AIの比較、承認と実行の分離、初回1ケース、実クラウドへの移行条件 |
 
+## 将来案：障害注入と復旧確認
+
+[出版社PDFを踏まえた未実装の発展案](docs/chaos-resilience-future-study.ja.md)は、障害注入の終了とサービス復旧の判定を分けます。対象論文の第8節は将来の評価方法であり、実測効果を示しません。クラウド操作・権限変更は行っていません。
+
 ## 調査から得た結論
 
 - 最初から3クラウドに多数の自律agentを置かず、既存AI 1つの診断を基準にする。
