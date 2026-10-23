@@ -59,7 +59,7 @@ class AdapterTests(unittest.TestCase):
         class Client:
             def query_resource(self, resource, **kwargs):
                 self.resource, self.kwargs = resource, kwargs
-                point = SimpleNamespace(time_stamp=T0, average=1)
+                point = SimpleNamespace(timestamp=T0, average=1)
                 return SimpleNamespace(metrics=[SimpleNamespace(name="HealthyHostCount",
                     timeseries=[SimpleNamespace(data=[point])])])
         target = Target("azure", "s/region", "/subscriptions/s/resourceGroups/r/providers/Microsoft.Network/applicationGateways/demo",
@@ -69,6 +69,7 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(observation.value, 1)
         self.assertEqual(client.resource, target.resource)
         self.assertEqual(client.kwargs["metric_names"], [target.metric])
+        self.assertEqual(client.kwargs["aggregations"], ["Average"])
 
     def test_gcp_scoped_filter(self):
         class Client:
@@ -76,7 +77,7 @@ class AdapterTests(unittest.TestCase):
                 self.request = request
                 point = SimpleNamespace(interval=SimpleNamespace(end_time=T0),
                                         value=SimpleNamespace(int64_value=1, double_value=0))
-                return [SimpleNamespace(points=[point],
+                return [SimpleNamespace(points=[point], metric=SimpleNamespace(type=target.metric),
                     resource=SimpleNamespace(type="instance_group", labels={
                         "project_id":"synthetic", "location":"us-central1-a",
                         "instance_group_name":"group"}))]
@@ -114,10 +115,19 @@ class AdapterTests(unittest.TestCase):
         self.assertIsNone(observation.value)
         self.assertIsNone(propose(observation, T0 + timedelta(minutes=6)))
 
+    def test_aws_paginated_result_is_not_treated_as_complete(self):
+        class Client:
+            def get_metric_data(self, **kwargs):
+                return {"NextToken": "synthetic-next-page", "MetricDataResults": [{
+                    "Id": "signal", "StatusCode": "Complete",
+                    "Timestamps": [T0], "Values": [99]}]}
+        with self.assertRaisesRegex(CollectionError, "paginated"):
+            AWSCloudWatch(Client(), aws_target(), "AWS/ApplicationELB").collect(T0)
+
     def test_multi_series_and_out_of_scope_fail_closed(self):
         class AzureClient:
             def query_resource(self, *args, **kwargs):
-                series = SimpleNamespace(data=[SimpleNamespace(time_stamp=T0, average=2)])
+                series = SimpleNamespace(data=[SimpleNamespace(timestamp=T0, average=2)])
                 return SimpleNamespace(metrics=[SimpleNamespace(name="HealthyHostCount",
                     timeseries=[series, series])])
         target = Target("azure", "s/region", "/subscriptions/s/resourceGroups/r/providers/Microsoft.Network/applicationGateways/demo",
@@ -127,14 +137,16 @@ class AdapterTests(unittest.TestCase):
 
         gcp = Target("gcp", "projects/synthetic", "group",
                      "compute.googleapis.com/instance_group/size", 2, location="us-central1-a")
-        for resource_type, labels in (
-            ("instance_group", {"project_id":"other", "location":"us-central1-a", "instance_group_name":"group"}),
-            ("instance_group", {"project_id":"synthetic", "location":"europe-west1-b", "instance_group_name":"group"}),
-            ("gce_instance", {"project_id":"synthetic", "location":"us-central1-a", "instance_group_name":"group"}),
+        for metric_type, resource_type, labels in (
+            (gcp.metric, "instance_group", {"project_id":"other", "location":"us-central1-a", "instance_group_name":"group"}),
+            (gcp.metric, "instance_group", {"project_id":"synthetic", "location":"europe-west1-b", "instance_group_name":"group"}),
+            (gcp.metric, "gce_instance", {"project_id":"synthetic", "location":"us-central1-a", "instance_group_name":"group"}),
+            ("other/metric", "instance_group", {"project_id":"synthetic", "location":"us-central1-a", "instance_group_name":"group"}),
         ):
             class GCPClient:
                 def list_time_series(self, *, request):
-                    return [SimpleNamespace(resource=SimpleNamespace(type=resource_type, labels=labels),
+                    return [SimpleNamespace(metric=SimpleNamespace(type=metric_type),
+                                            resource=SimpleNamespace(type=resource_type, labels=labels),
                                             points=[])]
             with self.subTest(labels=labels), self.assertRaisesRegex(CollectionError, "out-of-scope"):
                 GCPMonitoring(GCPClient(), gcp).collect(T0)
